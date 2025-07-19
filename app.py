@@ -110,6 +110,20 @@ with st.container():
                 f"{quantity} pcs",
                 total_price
             ])
+
+            # Open Registrants sheet
+            registrants_sheet = client.open_by_key(sheet_key).worksheet("DiceDetail")
+            
+            # Convert quantity to integer
+            if isinstance(quantity, int):
+                qty_count = quantity
+            else:
+                qty_count = int(str(quantity).split()[0])  # in case it's like "3 pcs"
+            
+            # Write to Registrants sheet
+            for _ in range(qty_count):
+                registrants_sheet.append_row([current_time, name])
+
             
             st.success("Order submitted! Silakan lanjut ke pembayaran sesuai instruksi di bawah.")
 
