@@ -69,11 +69,11 @@ st.markdown(
 with st.container():
     st.image("banner.jpg", use_container_width=True)
     st.title("Lis Dice Form")
-    st.image("prizepool.jpg", use_container_width=True)
     st.markdown(
-        "<div>Mau ikut main Dice bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><br/>",
+        "<div>Mau ikut main Dice bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><br/><div>IDR 35.000 per Pull</div><br/>",
         unsafe_allow_html=True
     )
+    st.image("prizepool.jpg", use_container_width=True)
 
     name = st.text_input("Nama Kamu")
     wa_number = st.text_input("Nomor WhatsApp", placeholder="0891234567788")
