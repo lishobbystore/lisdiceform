@@ -67,8 +67,9 @@ st.markdown(
 )
 
 with st.container():
+    st.image("banner.jpg", use_container_width=True)
     st.title("Lis Dice Form")
-    #st.image("banner.jpg", use_container_width=True)
+    st.image("prizepool.jpg", use_container_width=True)
     st.markdown(
         "<div>Mau ikut main Dice bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><br/>",
         unsafe_allow_html=True
