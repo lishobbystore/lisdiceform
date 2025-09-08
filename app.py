@@ -68,7 +68,7 @@ st.markdown(
 
 with st.container():
     st.image("banner.jpg", use_container_width=True)
-    st.title("Lis Dice Form")
+    st.title("Lis Gacha Form")
     st.markdown(
         "<div>Mau ikut main gacha bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><div>IDR 40.000 per Pull!!!</div><br/>",
         unsafe_allow_html=True
