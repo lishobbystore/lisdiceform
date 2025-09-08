@@ -70,11 +70,11 @@ with st.container():
     st.image("banner.jpg", use_container_width=True)
     st.title("Lis Dice Form")
     st.markdown(
-        "<div>Mau ikut main Dice bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><div>IDR 35.000 per Pull!!!</div><br/>",
+        "<div>Mau ikut main gacha bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><div>IDR 40.000 per Pull!!!</div><br/>",
         unsafe_allow_html=True
     )
-    st.image("prizepool.jpg", use_container_width=True)
-    st.markdown("<br/>",unsafe_allow_html=True)
+    #st.image("prizepool.jpg", use_container_width=True)
+    #st.markdown("<br/>",unsafe_allow_html=True)
 
     name = st.text_input("Nama Kamu")
     wa_number = st.text_input("Nomor WhatsApp", placeholder="0891234567788")
@@ -86,8 +86,8 @@ with st.container():
 
     quantity = st.number_input("Jumlah Pull", min_value=1, step=1)
 
-    item_name = "Dice with Irene"
-    unit_price = 35000
+    item_name = "Gacha with Irene"
+    unit_price = 40000
     total_price = unit_price * quantity
 
     st.markdown(f'<div class="price">Harga per Item: Rp {unit_price:,.0f}</div>', unsafe_allow_html=True)
