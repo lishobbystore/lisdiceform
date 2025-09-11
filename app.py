@@ -26,7 +26,7 @@ def get_spreadsheet_and_config():
 ss, cfg_ws = get_spreadsheet_and_config()
 
 # === NEW: single batched read + cache ===
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def read_config_range():
     # Expecting:
     # Row 1: A1..E1 -> [remaining_pulls, (unused), (unused), (unused), (unused)]
