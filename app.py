@@ -92,7 +92,7 @@ with st.container():
     if remaining_pulls is None:
         st.warning("Sisa kuota pull belum di-setup.")
     else:
-        st.info(f"Sisa kuota pull hari ini: **{remaining_pulls}**")
+        st.info(f"Sisa bola dari pool saat ini: **{remaining_pulls}**")
         if remaining_pulls <= 0:
             st.error("Kuota pull untuk hari ini sudah habis.")
             st.stop()
