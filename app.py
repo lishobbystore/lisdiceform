@@ -93,6 +93,42 @@ st.markdown(
         font-size: 12px;
         border-top: 1px solid #cce0ff;
     }
+
+    /* Theme-aware variables for the status box */
+    :root {
+        --card-bg: #f8fbff;
+        --card-border: #cfe2ff;
+        --accent: #1a73e8;
+        --text: #1a73e8; /* make text blue so it stays readable on dark backgrounds too */
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: #0b1b2e;
+            --card-border: #1f3b66;
+            --accent: #8ab4f8;
+            --text: #8ab4f8;
+        }
+    }
+    .status-box {
+        padding: 18px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-left: 6px solid var(--accent);
+        border-radius: 10px;
+        margin: 12px 0 16px 0;
+        line-height: 1.6;
+        font-size: 16px;
+        color: var(--text);
+    }
+    .status-box .title {
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--accent);
+        margin-bottom: 10px;
+    }
+    .status-box b {
+        font-weight: 800;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -106,52 +142,36 @@ with st.container():
         unsafe_allow_html=True
     )
 
-    # ── Single BIG info box: remaining pulls + A–E status
-    # Normalize display text
-    def status_text(s):
-        return s if (s and s.lower() in ["available", "pulled"]) else (s or "?")
+    # ── Pull counter (separate, using st.info)
+    if remaining_pulls is None:
+        st.warning("Sisa kuota pull belum di-setup.")
+    else:
+        st.info(f"Sisa kuota pull hari ini: **{remaining_pulls}**")
+        if remaining_pulls <= 0:
+            st.error("Kuota pull untuk hari ini sudah habis.")
+            st.stop()
 
-    rp_text = (
-        f"<b>{remaining_pulls}</b>" if remaining_pulls is not None else
-        "<i>belum di-setup</i>"
-    )
-    a_text = status_text(status_a)
-    b_text = status_text(status_b)
-    c_text = status_text(status_c)
-    d_text = status_text(status_d)
-    e_text = (
-        f"tersisa <b>{stock_e}</b>" if stock_e is not None else
-        "stok belum di-setup"
-    )
+    # ── Single status box (A–D status + E stock)
+    def norm_status(s):
+        # Show as bold; default to "?" if missing
+        return f"<b>{(s or '?')}</b>"
+    a_text = norm_status(status_a)
+    b_text = norm_status(status_b)
+    c_text = norm_status(status_c)
+    d_text = norm_status(status_d)
+    e_text = f"tersisa <b>{stock_e}</b>" if stock_e is not None else "<b>stok belum di-setup</b>"
 
-    info_html = f"""
-    <div style="
-        padding:18px;
-        background:#f8fbff;
-        border:1px solid #cfe2ff;
-        border-left:6px solid #1a73e8;
-        border-radius:10px;
-        margin:12px 0 16px 0;
-        line-height:1.6;
-        font-size:16px;
-    ">
-      <div style="font-size:20px; font-weight:800; color:#1a73e8; margin-bottom:10px;">
-        📦 Status Hadiah & Kuota
-      </div>
-      <div>🎯 Sisa kuota pull hari ini: {rp_text}</div>
-      <div><strong>A</strong> : Nendoroid - Bebas kamu pilih &nbsp; → {a_text}</div>
-      <div><strong>B</strong> : Nendoroid - pilihan Lis &nbsp; → {b_text}</div>
-      <div><strong>C</strong> : Prize Figure &nbsp; → {c_text}</div>
-      <div><strong>D</strong> : Plush Aranara &nbsp; → {d_text}</div>
-      <div><strong>E</strong> : Blokees &nbsp; → {e_text}</div>
+    status_html = f"""
+    <div class="status-box">
+      <div class="title">📦 Status Hadiah</div>
+      <div><strong>A</strong> : Nendoroid - Bebas kamu pilih : {a_text}</div>
+      <div><strong>B</strong> : Nendoroid - pilihan Lis : {b_text}</div>
+      <div><strong>C</strong> : Prize Figure : {c_text}</div>
+      <div><strong>D</strong> : Plush Aranara : {d_text}</div>
+      <div><strong>E</strong> : Blokees : {e_text}</div>
     </div>
     """
-    st.markdown(info_html, unsafe_allow_html=True)
-
-    # If remaining pulls explicitly 0 or below, stop early
-    if remaining_pulls is not None and remaining_pulls <= 0:
-        st.error("Kuota pull untuk hari ini sudah habis.")
-        st.stop()
+    st.markdown(status_html, unsafe_allow_html=True)
 
     # Inputs
     name = st.text_input("Nama Kamu")
