@@ -23,6 +23,20 @@ sheet_key = st.secrets["sheets"]["sheet_key"]
 # Open your Google Sheet
 orders_sheet = client.open_by_key(sheet_key).worksheet("Orders")
 
+# ── NEW: read remaining pulls from a single cell (GachaConfig!A1)
+def get_remaining_pulls():
+    try:
+        cfg = client.open_by_key(sheet_key).worksheet("GachaConfig")  # change name if needed
+        val = cfg.acell("A1").value  # single cell source of truth
+        if val is None or str(val).strip() == "":
+            return None
+        return int(str(val).strip())
+    except Exception:
+        # Sheet/cell not ready yet → return None gracefully
+        return None
+
+remaining_pulls = get_remaining_pulls()
+
 # --- Style ---
 st.markdown(
     """
@@ -73,9 +87,17 @@ with st.container():
         "<div>Mau ikut main gacha bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><div>IDR 40.000 per Pull!!!</div><br/>",
         unsafe_allow_html=True
     )
-    #st.image("prizepool.jpg", use_container_width=True)
-    #st.markdown("<br/>",unsafe_allow_html=True)
 
+    # ── NEW: show counter BEFORE name field
+    if remaining_pulls is None:
+        st.warning("Sisa kuota pull belum di-setup.")
+    else:
+        st.info(f"Sisa kuota pull hari ini: **{remaining_pulls}**")
+        if remaining_pulls <= 0:
+            st.error("Kuota pull untuk hari ini sudah habis.")
+            st.stop()
+
+    # Inputs
     name = st.text_input("Nama Kamu")
     wa_number = st.text_input("Nomor WhatsApp", placeholder="0891234567788")
     address = st.text_area(
@@ -84,7 +106,11 @@ with st.container():
     )
     st.caption("Harap isi lengkap: nama jalan, kelurahan, kecamatan, kota/kabupaten, provinsi, dan kode pos.")
 
-    quantity = st.number_input("Jumlah Pull", min_value=1, step=1)
+    # ── NEW: cap quantity to remaining if it exists
+    if remaining_pulls is None:
+        quantity = st.number_input("Jumlah Pull", min_value=1, step=1)
+    else:
+        quantity = st.number_input("Jumlah Pull", min_value=1, max_value=remaining_pulls, step=1)
 
     item_name = "Gacha with Irene"
     unit_price = 40000
@@ -93,11 +119,16 @@ with st.container():
     st.markdown(f'<div class="price">Harga per Item: Rp {unit_price:,.0f}</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="price">Total Harga: Rp {total_price:,.0f}</div><br/>', unsafe_allow_html=True)
 
-    if st.button("Submit Order"):
+    # Disable submit if remaining exists and is 0 (already handled by st.stop above), or if quantity > remaining (guard)
+    submit_disabled = (remaining_pulls is not None and remaining_pulls <= 0)
+
+    if st.button("Submit Order", disabled=submit_disabled):
         if not name.strip() or not wa_number.strip() or not address.strip():
             st.error("Tolong isi Nama Kamu, Nomor WhatsApp, dan Alamat Lengkap.")
         elif not wa_number.strip().isdigit():
             st.error("Nomor WhatsApp harus berupa angka saja (tanpa spasi atau simbol).")
+        elif remaining_pulls is not None and quantity > remaining_pulls:
+            st.error("Jumlah pull melebihi sisa kuota.")
         else:
             tz = pytz.timezone("Asia/Jakarta")
             current_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
@@ -112,7 +143,7 @@ with st.container():
                 f"{quantity} pcs",
                 total_price
             ])
-            
+
             st.success("Order submitted! Silakan lanjut ke pembayaran sesuai instruksi di bawah.")
 
             st.markdown(f"""
