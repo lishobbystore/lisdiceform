@@ -1,3 +1,4 @@
+import os, json, time, random
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -14,52 +15,119 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, s
 client = gspread.authorize(creds)
 
 sheet_key = st.secrets["sheets"]["sheet_key"]
+
+# Open your Google Sheet (Orders)
 orders_sheet = client.open_by_key(sheet_key).worksheet("Orders")
 
-# === NEW: cache worksheet handle (resource) ===
-@st.cache_resource(show_spinner=False)
-def get_spreadsheet_and_config():
+# ================== CONFIG READER WITH FILE CACHE ==================
+CFG_WS_NAME = "GachaConfig"
+CFG_RANGE = "A1:E2"   # A1: remaining pulls; A2:D2: status A-D; E2: stock E
+CACHE_PATH = "/mnt/data/gacha_cfg.json"
+TTL_SECS = 120  # how long other sessions reuse a single read
+
+def _read_config_from_api():
+    """Single batched read with retry/backoff to avoid 429."""
     ss = client.open_by_key(sheet_key)
-    cfg = ss.worksheet("GachaConfig")
-    return ss, cfg
+    ws = ss.worksheet(CFG_WS_NAME)
+    # retry a few times on 429
+    attempts = 4
+    base = 0.4
+    for i in range(attempts):
+        try:
+            values = ws.get(CFG_RANGE)  # single call
+            return values
+        except Exception as e:
+            msg = str(e)
+            if "429" in msg or "Quota exceeded" in msg:
+                # exponential backoff with jitter
+                sleep_s = base * (2 ** i) + random.uniform(0, 0.25)
+                time.sleep(sleep_s)
+                continue
+            # other errors -> raise immediately
+            raise
+    # if still failing, raise the last error to be handled by caller
+    raise RuntimeError("Google Sheets read failed after retries (429).")
 
-ss, cfg_ws = get_spreadsheet_and_config()
-
-# === NEW: single batched read + cache ===
-@st.cache_data(ttl=120, show_spinner=False)
-def read_config_range():
-    # Expecting:
-    # Row 1: A1..E1 -> [remaining_pulls, (unused), (unused), (unused), (unused)]
-    # Row 2: A2..E2 -> [statusA, statusB, statusC, statusD, stockE]
-    values = cfg_ws.get("A1:E2")
-    # normalize to 2 rows, 5 cols
+def _normalize(values):
+    # Ensure 2 rows x 5 cols
+    if values is None:
+        values = []
     while len(values) < 2:
         values.append([])
-    for i in range(len(values)):
-        while len(values[i]) < 5:
-            values[i].append("")
+    for r in range(len(values)):
+        while len(values[r]) < 5:
+            values[r].append("")
     return values
 
-def safe_get_config():
+def _load_cache():
+    if not os.path.exists(CACHE_PATH):
+        return None
     try:
-        vals = read_config_range()
-        # Parse
-        rp_raw = vals[0][0].strip()
-        remaining = int(rp_raw) if rp_raw else None
-        status_a = vals[1][0].strip() or None
-        status_b = vals[1][1].strip() or None
-        status_c = vals[1][2].strip() or None
-        status_d = vals[1][3].strip() or None
-        stock_e_raw = vals[1][4].strip()
-        stock_e = int(stock_e_raw) if stock_e_raw else None
-        return remaining, status_a, status_b, status_c, status_d, stock_e, None
+        with open(CACHE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except Exception:
+        return None
+
+def _save_cache(values):
+    try:
+        os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+        with open(CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"ts": time.time(), "values": values}, f)
+    except Exception:
+        pass
+
+def read_config_batched(force_refresh=False):
+    """Returns (remaining_pulls, status_a,b,c,d, stock_e, error_or_None) with file cache."""
+    if not force_refresh:
+        cached = _load_cache()
+        if cached and (time.time() - cached.get("ts", 0) <= TTL_SECS):
+            vals = _normalize(cached.get("values", []))
+            return _parse_vals(vals) + (None,)
+
+    # read from API (with retry/backoff); on failure, fallback to last cache
+    try:
+        vals = _normalize(_read_config_from_api())
+        _save_cache(vals)
+        return _parse_vals(vals) + (None,)
     except Exception as e:
-        # If API 429 or any error, return None with the error so we can show a warning
-        return None, None, None, None, None, None, e
+        cached = _load_cache()
+        if cached:
+            vals = _normalize(cached.get("values", []))
+            return _parse_vals(vals) + (e,)
+        return (None, None, None, None, None, None, e)
 
-remaining_pulls, status_a, status_b, status_c, status_d, stock_e, cfg_err = safe_get_config()
+def _parse_vals(vals):
+    # vals[0][0]=A1 remaining pulls; vals[1]=A2..E2
+    rp_raw = str(vals[0][0]).strip()
+    remaining = int(rp_raw) if rp_raw else None
+    row2 = vals[1]
+    status_a = str(row2[0]).strip() or None
+    status_b = str(row2[1]).strip() or None
+    status_c = str(row2[2]).strip() or None
+    status_d = str(row2[3]).strip() or None
+    stock_e_raw = str(row2[4]).strip()
+    stock_e = int(stock_e_raw) if stock_e_raw else None
+    return (remaining, status_a, status_b, status_c, status_d, stock_e)
 
-# --- Style (kept) ---
+# Optional: manual refresh button
+colL, colR = st.columns([1, 3])
+with colL:
+    if st.button("Refresh Status", use_container_width=True):
+        # delete file cache so next read forces API
+        try:
+            if os.path.exists(CACHE_PATH):
+                os.remove(CACHE_PATH)
+        except Exception:
+            pass
+
+# Read config (uses cache; refresh if button clicked)
+remaining_pulls, status_a, status_b, status_c, status_d, stock_e, cfg_err = read_config_batched(
+    force_refresh=False
+)
+# ================================================================
+
+# --- Style ---
 st.markdown(
     """
     <style>
@@ -101,20 +169,20 @@ with st.container():
         unsafe_allow_html=True
     )
 
-    # --- Show config read warning if any ---
+    # Show warning if we fell back to cached after an error
     if cfg_err is not None:
-        st.warning("Gagal membaca status hadiah (mungkin kuota read Sheets habis). Menampilkan nilai terakhir yang tersimpan jika ada cache.")
+        st.warning("Gagal membaca status hadiah (rate limit). Menampilkan nilai cache terbaru.")
 
-    # --- Pull counter (separate, st.info) ---
+    # Pull counter (separate, st.info)
     if remaining_pulls is None:
         st.warning("Sisa kuota pull belum di-setup.")
     else:
-        st.info(f"Sisa bola dari pool saat ini: **{remaining_pulls}**")
+        st.info(f"Sisa kuota pull hari ini: **{remaining_pulls}**")
         if remaining_pulls <= 0:
             st.error("Kuota pull untuk hari ini sudah habis.")
             st.stop()
 
-    # --- Single status box (A–D status bold, E stock; use ':' not '→') ---
+    # Status box (A–D status bold + E stock) using ":" not arrow
     def norm_status(s): return f"<b>{(s or '?')}</b>"
     a_text = norm_status(status_a)
     b_text = norm_status(status_b)
@@ -134,7 +202,7 @@ with st.container():
     """
     st.markdown(status_html, unsafe_allow_html=True)
 
-    # --- Inputs ---
+    # Inputs
     name = st.text_input("Nama Kamu")
     wa_number = st.text_input("Nomor WhatsApp", placeholder="0891234567788")
     address = st.text_area(
@@ -143,7 +211,7 @@ with st.container():
     )
     st.caption("Harap isi lengkap: nama jalan, kelurahan, kecamatan, kota/kabupaten, provinsi, dan kode pos.")
 
-    # Cap qty by remaining pulls if present
+    # Cap quantity by remaining pulls if present
     if remaining_pulls is None:
         quantity = st.number_input("Jumlah Pull", min_value=1, step=1)
     else:
