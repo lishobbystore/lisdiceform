@@ -111,17 +111,17 @@ def _parse_vals(vals):
     return (remaining, status_a, status_b, status_c, status_d, stock_e)
 
 # Optional: manual refresh button
-/* 
-colL, colR = st.columns([1, 3])
-with colL:
-    if st.button("Refresh Status", use_container_width=True):
+
+#colL, colR = st.columns([1, 3])
+#with colL:
+#    if st.button("Refresh Status", use_container_width=True):
         # delete file cache so next read forces API
-        try:
-            if os.path.exists(CACHE_PATH):
-                os.remove(CACHE_PATH)
-        except Exception:
-            pass
-*/
+#        try:
+#            if os.path.exists(CACHE_PATH):
+#                os.remove(CACHE_PATH)
+#        except Exception:
+#            pass
+            
 # Read config (uses cache; refresh if button clicked)
 remaining_pulls, status_a, status_b, status_c, status_d, stock_e, cfg_err = read_config_batched(
     force_refresh=False
