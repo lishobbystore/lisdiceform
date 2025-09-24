@@ -110,17 +110,6 @@ def _parse_vals(vals):
     stock_e = int(stock_e_raw) if stock_e_raw else None
     return (remaining, status_a, status_b, status_c, status_d, stock_e)
 
-# Optional: manual refresh button
-
-#colL, colR = st.columns([1, 3])
-#with colL:
-#    if st.button("Refresh Status", use_container_width=True):
-        # delete file cache so next read forces API
-#        try:
-#            if os.path.exists(CACHE_PATH):
-#                os.remove(CACHE_PATH)
-#        except Exception:
-#            pass
             
 # Read config (uses cache; refresh if button clicked)
 remaining_pulls, status_a, status_b, status_c, status_d, stock_e, cfg_err = read_config_batched(
@@ -163,7 +152,7 @@ st.markdown(
 )
 
 with st.container():
-    st.image("banner.jpg", use_container_width=True)
+    st.image("banner.jpg")
     st.title("Lis Gacha Form")
     st.markdown(
         "<div>Mau ikut main gacha bareng Irene? Isi form ini biar order kamu langsung tercatat!</div><div>IDR 40.000 per Pull!!!</div><br/>",
@@ -202,6 +191,18 @@ with st.container():
     </div>
     """
     st.markdown(status_html, unsafe_allow_html=True)
+
+    # Optional: manual refresh button
+
+    colL, colR = st.columns([1, 3])
+    with colL:
+        if st.button("Refresh Status", use_container_width=True):
+            # delete file cache so next read forces API
+            try:
+                if os.path.exists(CACHE_PATH):
+                    os.remove(CACHE_PATH)
+            except Exception:
+                pass
 
     # Inputs
     name = st.text_input("Nama Kamu")
